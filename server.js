@@ -1,7 +1,17 @@
 const express = require("express");
 const app = express();
 
+// Middleware to read JSON data
 app.use(express.json());
+
+// Custom Logger Middleware
+app.use((req, res, next) => {
+  const time = new Date().toLocaleTimeString();
+
+  console.log(`[${req.method}] ${req.url} - ${time}`);
+
+  next();
+});
 
 const PORT = 5000;
 
@@ -39,6 +49,15 @@ app.get("/posts/:id", (req, res) => {
 app.post("/posts", (req, res) => {
   const newPost = req.body;
 
+  // Check if ID already exists
+  const exists = blogPosts.some((item) => item.id === newPost.id);
+
+  if (exists) {
+    return res.status(400).json({
+      message: "Post with this ID already exists",
+    });
+  }
+
   blogPosts.push(newPost);
 
   res.status(201).json({
@@ -59,7 +78,11 @@ app.put("/posts/:id", (req, res) => {
     });
   }
 
-  blogPosts[index] = req.body;
+  // Update only the fields provided
+  blogPosts[index] = {
+    ...blogPosts[index],
+    ...req.body,
+  };
 
   res.json({
     message: "Post updated successfully",
@@ -83,6 +106,22 @@ app.delete("/posts/:id", (req, res) => {
 
   res.json({
     message: "Post deleted successfully",
+  });
+});
+
+// Mock Login API
+app.post("/login", (req, res) => {
+  const { email, password } = req.body;
+
+  if (!email || !password) {
+    return res.status(400).json({
+      message: "Email and password are required",
+    });
+  }
+
+  res.json({
+    message: "Login successful",
+    token: "mock-jwt-token-123456789",
   });
 });
 
