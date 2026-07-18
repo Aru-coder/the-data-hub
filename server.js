@@ -1,36 +1,28 @@
 const express = require("express");
 const app = express();
 
-// Middleware to read JSON data
 app.use(express.json());
 
-// Custom Logger Middleware
 app.use((req, res, next) => {
   const time = new Date().toLocaleTimeString();
-
   console.log(`[${req.method}] ${req.url} - ${time}`);
-
   next();
 });
 
 const PORT = 5000;
 
-// In-memory database
 let blogPosts = [];
 
-// Home Route
 app.get("/", (req, res) => {
   res.json({
     message: "Welcome to The Data Hub",
   });
 });
 
-// GET All Posts
 app.get("/posts", (req, res) => {
   res.json(blogPosts);
 });
 
-// GET Single Post
 app.get("/posts/:id", (req, res) => {
   const id = Number(req.params.id);
 
@@ -45,18 +37,28 @@ app.get("/posts/:id", (req, res) => {
   res.json(post);
 });
 
-// CREATE Post
 app.post("/posts", (req, res) => {
-  const newPost = req.body;
+  const { id, title, content } = req.body;
 
-  // Check if ID already exists
-  const exists = blogPosts.some((item) => item.id === newPost.id);
+  if (id === undefined || !title || !content) {
+    return res.status(400).json({
+      message: "id, title and content are required",
+    });
+  }
+
+  const exists = blogPosts.some((item) => item.id === id);
 
   if (exists) {
-    return res.status(400).json({
+    return res.status(409).json({
       message: "Post with this ID already exists",
     });
   }
+
+  const newPost = {
+    id,
+    title,
+    content,
+  };
 
   blogPosts.push(newPost);
 
@@ -66,7 +68,6 @@ app.post("/posts", (req, res) => {
   });
 });
 
-// UPDATE Post
 app.put("/posts/:id", (req, res) => {
   const id = Number(req.params.id);
 
@@ -78,10 +79,18 @@ app.put("/posts/:id", (req, res) => {
     });
   }
 
-  // Update only the fields provided
+  const { title, content } = req.body;
+
+  if (!title || !content) {
+    return res.status(400).json({
+      message: "title and content are required",
+    });
+  }
+
   blogPosts[index] = {
     ...blogPosts[index],
-    ...req.body,
+    title,
+    content,
   };
 
   res.json({
@@ -90,26 +99,24 @@ app.put("/posts/:id", (req, res) => {
   });
 });
 
-// DELETE Post
 app.delete("/posts/:id", (req, res) => {
   const id = Number(req.params.id);
 
-  const postExists = blogPosts.some((item) => item.id === id);
+  const index = blogPosts.findIndex((item) => item.id === id);
 
-  if (!postExists) {
+  if (index === -1) {
     return res.status(404).json({
       message: "Post not found",
     });
   }
 
-  blogPosts = blogPosts.filter((item) => item.id !== id);
+  blogPosts.splice(index, 1);
 
   res.json({
     message: "Post deleted successfully",
   });
 });
 
-// Mock Login API
 app.post("/login", (req, res) => {
   const { email, password } = req.body;
 
@@ -122,6 +129,20 @@ app.post("/login", (req, res) => {
   res.json({
     message: "Login successful",
     token: "mock-jwt-token-123456789",
+  });
+});
+
+app.use((req, res) => {
+  res.status(404).json({
+    message: "Route not found",
+  });
+});
+
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+
+  res.status(500).json({
+    message: "Internal Server Error",
   });
 });
 
