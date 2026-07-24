@@ -1,4 +1,8 @@
+require("dotenv").config();
+
 const express = require("express");
+const connectDB = require("./config/db");
+
 const app = express();
 
 app.use(express.json());
@@ -11,6 +15,10 @@ app.use((req, res, next) => {
 
 const PORT = process.env.PORT || 5000;
 
+// Connect to MongoDB
+connectDB();
+
+// Temporary in-memory array (will be removed in the next step)
 let blogPosts = [];
 
 app.get("/", (req, res) => {
