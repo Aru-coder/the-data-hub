@@ -2,6 +2,8 @@ require("dotenv").config();
 
 const express = require("express");
 const connectDB = require("./config/db");
+const Post = require("./models/Post");
+const User = require("./models/User");
 
 const app = express();
 
@@ -18,111 +20,117 @@ const PORT = process.env.PORT || 5000;
 // Connect to MongoDB
 connectDB();
 
-// Temporary in-memory array (will be removed in the next step)
-let blogPosts = [];
-
 app.get("/", (req, res) => {
   res.json({
     message: "Welcome to The Data Hub",
   });
 });
 
-app.get("/posts", (req, res) => {
-  res.json(blogPosts);
+// GET /posts/top: Return the Top 3 Most Recent Posts
+app.get("/posts/top", async (req, res) => {
+  try {
+    const topPosts = await Post.find()
+      .sort({ createdAt: -1 })
+      .limit(3)
+      .populate("authorId");
+    res.json(topPosts);
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
 });
 
-app.get("/posts/:id", (req, res) => {
-  const id = Number(req.params.id);
-
-  const post = blogPosts.find((item) => item.id === id);
-
-  if (!post) {
-    return res.status(404).json({
-      message: "Post not found",
-    });
+// GET /posts: Query all posts
+app.get("/posts", async (req, res) => {
+  try {
+    const posts = await Post.find().populate("authorId");
+    res.json(posts);
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error: error.message });
   }
-
-  res.json(post);
 });
 
-app.post("/posts", (req, res) => {
-  const { id, title, content } = req.body;
-
-  if (id === undefined || !title || !content) {
-    return res.status(400).json({
-      message: "id, title and content are required",
-    });
+// GET /posts/:id: Query a specific post
+app.get("/posts/:id", async (req, res) => {
+  try {
+    const post = await Post.findById(req.params.id).populate("authorId");
+    if (!post) {
+      return res.status(404).json({ message: "Post not found" });
+    }
+    res.json(post);
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error: error.message });
   }
-
-  const exists = blogPosts.some((item) => item.id === id);
-
-  if (exists) {
-    return res.status(409).json({
-      message: "Post with this ID already exists",
-    });
-  }
-
-  const newPost = {
-    id,
-    title,
-    content,
-  };
-
-  blogPosts.push(newPost);
-
-  res.status(201).json({
-    message: "Blog post created successfully",
-    data: newPost,
-  });
 });
 
-app.put("/posts/:id", (req, res) => {
-  const id = Number(req.params.id);
-
-  const index = blogPosts.findIndex((item) => item.id === id);
-
-  if (index === -1) {
-    return res.status(404).json({
-      message: "Post not found",
+// POST /posts: Create a new post
+app.post("/posts", async (req, res) => {
+  try {
+    const { title, content, authorId } = req.body;
+    if (!title || !content) {
+      return res.status(400).json({ message: "title and content are required" });
+    }
+    const newPost = await Post.create({ title, content, authorId });
+    res.status(201).json({
+      message: "Blog post created successfully",
+      data: newPost,
     });
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error: error.message });
   }
-
-  const { title, content } = req.body;
-
-  if (!title || !content) {
-    return res.status(400).json({
-      message: "title and content are required",
-    });
-  }
-
-  blogPosts[index] = {
-    ...blogPosts[index],
-    title,
-    content,
-  };
-
-  res.json({
-    message: "Post updated successfully",
-    data: blogPosts[index],
-  });
 });
 
-app.delete("/posts/:id", (req, res) => {
-  const id = Number(req.params.id);
-
-  const index = blogPosts.findIndex((item) => item.id === id);
-
-  if (index === -1) {
-    return res.status(404).json({
-      message: "Post not found",
+// PUT /posts/:id: Update a post
+app.put("/posts/:id", async (req, res) => {
+  try {
+    const { title, content } = req.body;
+    if (!title || !content) {
+      return res.status(400).json({ message: "title and content are required" });
+    }
+    const updatedPost = await Post.findByIdAndUpdate(
+      req.params.id,
+      { title, content },
+      { new: true }
+    );
+    if (!updatedPost) {
+      return res.status(404).json({ message: "Post not found" });
+    }
+    res.json({
+      message: "Post updated successfully",
+      data: updatedPost,
     });
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error: error.message });
   }
+});
 
-  blogPosts.splice(index, 1);
+// DELETE /posts/:id: Delete a post
+app.delete("/posts/:id", async (req, res) => {
+  try {
+    const deletedPost = await Post.findByIdAndDelete(req.params.id);
+    if (!deletedPost) {
+      return res.status(404).json({ message: "Post not found" });
+    }
+    res.json({ message: "Post deleted successfully" });
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+});
 
-  res.json({
-    message: "Post deleted successfully",
-  });
+// POST /users: Create a user (Helper route for testing relational modeling)
+app.post("/users", async (req, res) => {
+  try {
+    const { name, email } = req.body;
+    if (!name || !email) {
+      return res.status(400).json({ message: "name and email are required" });
+    }
+    const newUser = await User.create({ name, email });
+    res.status(201).json({
+      message: "User created successfully",
+      data: newUser,
+    });
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
 });
 
 app.post("/login", (req, res) => {
